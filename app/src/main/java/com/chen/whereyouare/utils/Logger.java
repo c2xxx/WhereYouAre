@@ -20,4 +20,8 @@ public class Logger {
     public static void e(String msg) {
         Log.e(TAG, msg);
     }
+
+    public static void e(Throwable err) {
+        Log.e(TAG, Log.getStackTraceString(err));
+    }
 }

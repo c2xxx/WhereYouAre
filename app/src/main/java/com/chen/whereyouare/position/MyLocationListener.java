@@ -1,11 +1,19 @@
 package com.chen.whereyouare.position;
 
+import android.os.Build;
 import android.text.TextUtils;
 
 import com.baidu.location.BDLocation;
 import com.baidu.location.BDLocationListener;
 import com.baidu.location.Poi;
+import com.chen.whereyouare.BuildConfig;
+import com.chen.whereyouare.bean.Position;
+import com.chen.whereyouare.net.UploadPositionHelper;
+import com.chen.whereyouare.other.AnyEvent;
 import com.chen.whereyouare.utils.Logger;
+import com.chen.whereyouare.utils.MyUtil;
+
+import org.greenrobot.eventbus.EventBus;
 
 import java.util.List;
 
@@ -13,13 +21,22 @@ import java.util.List;
  * Created by ChenHui on 2016/11/1.
  */
 public class MyLocationListener implements BDLocationListener {
+//    private List<BDLocation> listLocation = new ArrayList<>();
+
+    private String imeiCode;
+
     @Override
     public void onReceiveLocation(BDLocation location) {
 //        Logger.d("收到定位1：" + location.getAddrStr());
         if (TextUtils.isEmpty(location.getTime())) {
             return;
         }
+//        listLocation.add(location);
+        uploadIfNeed(location);
 
+        if (!BuildConfig.DEBUG) {
+            return;
+        }
         //Receive Location
         StringBuffer sb = new StringBuffer(256);
         sb.append("定位时间 : ");
@@ -78,6 +95,38 @@ public class MyLocationListener implements BDLocationListener {
                 sb.append(p.getId() + " " + p.getName() + " " + p.getRank());
             }
         }
-        Logger.i("BaiduLocationApiDem", sb.toString());
+        Logger.i("BaiduLocationApiDemo", sb.toString());
+    }
+
+    private void uploadIfNeed(BDLocation location) {
+        String splitStr = ";";
+        StringBuilder poiList = new StringBuilder();
+        for (Poi p : location.getPoiList()) {
+            poiList.append(splitStr + p.getName());
+        }
+        String poiListStr = poiList.toString();
+        if (poiListStr.length() > 1) {
+            poiListStr = poiListStr.replaceFirst(splitStr, "");
+        }
+        Position position = new Position(
+                System.currentTimeMillis(),
+                "baidu",
+                Build.USER,
+                getImei(),
+                location.getLongitude(),
+                location.getLatitude(),
+                location.getAddrStr(),
+                location.getLocationDescribe(),
+                poiListStr);
+        UploadPositionHelper.getInstance().savePosition(position);
+        EventBus.getDefault().post(new AnyEvent(AnyEvent.TYPE.RECEIVE_POSITION, position));
+    }
+
+
+    private String getImei() {
+        if (imeiCode == null) {
+            imeiCode = MyUtil.getDeviceImei();
+        }
+        return imeiCode;
     }
 }
